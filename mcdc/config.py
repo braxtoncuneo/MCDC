@@ -58,6 +58,13 @@ parser.add_argument(
     default=1,
 )
 
+parser.add_argument(
+    "--gpu_state",
+    type=str,
+    help="How CPU/GPU states are managed.",
+    choices=["separate", "unified", "apu"],
+    default="separate",
+)
 
 parser.add_argument("--N_particle", type=int, help="Number of particles")
 parser.add_argument("--output", type=str, help="Output file name")
@@ -74,6 +81,7 @@ mode = args.mode
 target = args.target
 caching = args.caching
 clear_cache = args.clear_cache
+gpu_state = args.gpu_state
 
 from mpi4py import MPI
 import shutil

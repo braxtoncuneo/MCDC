@@ -373,8 +373,13 @@ def prepare():
     #   TODO: Better alternative?
     # =========================================================================
 
-    mcdc_arr = np.zeros(1, dtype=type_.global_)
-    mcdc = mcdc_arr[0]
+    if config.gpu_state == "separate":
+        mcdc_arr = np.zeros(1, dtype=type_.global_)
+        mcdc = mcdc_arr[0]
+    elif config.gpu_state == "unified":
+        mcdc = None
+    else :
+        mcdc = None
 
     # Now, set up the global variable container
 

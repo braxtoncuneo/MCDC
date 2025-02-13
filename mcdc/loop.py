@@ -875,7 +875,7 @@ def build_gpu_progs(input_deck, args):
     BLOCK_COUNT = args.gpu_block_count
 
     global alloc_state, free_state
-    alloc_state = src_fns["alloc_state"]
+    alloc_state = src_fns["alloc_state"]["gpu"]
     free_state = src_fns["free_state"]
 
     global src_alloc_program, src_free_program
