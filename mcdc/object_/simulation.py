@@ -30,6 +30,8 @@ from numpy.typing import NDArray
 
 ####
 
+import mcdc.config as config
+
 from mcdc.object_.base import ObjectSingleton
 from mcdc.object_.data import DataBase, DataNone
 from mcdc.object_.distribution import DistributionBase, DistributionNone
@@ -38,6 +40,7 @@ from mcdc.object_.mesh import MeshBase, MeshUniform
 from mcdc.object_.particle import ParticleBank
 from mcdc.object_.settings import Settings
 from mcdc.object_.universe import Universe, Lattice
+from mcdc.object_.trace import Trace
 
 # ======================================================================================
 # Simulation
@@ -75,6 +78,10 @@ class Simulation(ObjectSingleton):
 
     # Tallies
     tallies: list[Tally]
+
+    #Trace
+    if config.trace:
+        trace: Trace
 
     # Settings
     settings: Settings

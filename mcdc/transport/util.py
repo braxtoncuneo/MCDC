@@ -151,10 +151,10 @@ def log_interpolation(x, x1, x2, y1, y2):
 # Framework utilities
 # ======================================================================================
 
-
+import mcdc.code_factory.atomic
 @njit()
 def atomic_add(array, idx, value):
-    array[idx] += value
+    atomic.atomic_add(array,idx,value)
 
 
 @njit()

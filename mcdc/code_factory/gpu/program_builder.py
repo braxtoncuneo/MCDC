@@ -17,6 +17,7 @@ def adapt_transport_functions():
     global access_simulation
 
     import mcdc.code_factory.gpu.transport as gpu_transport
+    import mcdc.code_factory as code_factory
     import mcdc.transport as transport
 
     transport.util.access_simulation = access_simulation
@@ -34,7 +35,7 @@ def adapt_transport_functions():
     transport.particle_bank.report_empty_bank = (
         gpu_transport.particle_bank.report_empty_bank
     )
-    transport.util.atomic_add = gpu_transport.util.atomic_add
+    code_factory.atomic.atomic_add = gpu_transport.util.atomic_add
     transport.util.local_array = gpu_transport.util.local_array
 
 

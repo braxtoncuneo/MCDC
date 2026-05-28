@@ -132,19 +132,20 @@ def trace(transforms=[]):
 
         trace_state_extractors = {
             "mcdc": "trace = mcdc['trace']",
+            "simulation" : "trace = simulation['trace']",
             "prog": "trace = adapt.mcdc_global(prog)['trace']",
             "mcdc_arr": "trace = mcdc_arr[0]['trace']",
         }
 
-        #extractor_target = None
-        #for target, extractor in trace_state_extractors.items():
-        #    if target in arg_set:
-        #        extractor_target = target
-        #        break
+        extractor_target = None
+        for target, extractor in trace_state_extractors.items():
+            if target in arg_set:
+                extractor_target = target
+                break
 
-        if config.trace:# and (extractor_target != None):
+        if config.trace and (extractor_target != None):
             global trace_roster
-            from mcdc.transport.util import atomic_add
+            from mcdc.code_factory.atomic import atomic_add
 
             for tr in transforms:
                 func = tr(func)
@@ -155,11 +156,13 @@ def trace(transforms=[]):
             func_id = trace_roster[name]["id"]
             arg_str = ",".join([arg for arg in arg_set])
 
+            extractor = trace_state_extractors[extractor_target]
+
             trace_wrapper_source = trace_wrapper_template.format(
                 name=name,
                 arg_str=arg_str,
                 id=func_id,
-                trace_state_extractor="trace = simulation['trace']",
+                trace_state_extractor=extractor,
             )
             exec(trace_wrapper_source, locals(), locals())
             trace_func = eval(f"trace_{func_id}_{name}")
@@ -180,9 +183,9 @@ def njit(*args, **kwargs):
 
     return trace_njit_inner
 
-from mcdc.numba_types import trace_slot
 
 def output_report(mcdc):
+    from mcdc.numba_types import trace_slot
     report = open("report.csv", "w")
     report.write("function name, ")
     report.write("python total runtime (ns), python total calls, ")
