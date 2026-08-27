@@ -308,35 +308,22 @@ def step_particle(particle_container, program, data):
                     simulation,
                     data,
                 )
-
-    # Surface and domain crossing
-    if particle["event"] & EVENT_SURFACE_CROSSING:
+        if simulation["technique"]["weight_windows"]["active"]:
+            technique.weight_windows(particle_container, program, data)
+        elif simulation["technique"]["global_weight_roulette"]["active"]:
+            technique.global_weight_roulette(particle_container, simulation)
+    elif particle["event"] & EVENT_SURFACE_CROSSING:
         surface_crossing(particle_container, simulation, data)
-
-    # Census time crossing
-    if particle["event"] & EVENT_TIME_CENSUS:
+        if simulation["technique"]["weight_windows"]["active"]:
+            technique.weight_windows(particle_container, program, data)
+        elif simulation["technique"]["global_weight_roulette"]["active"]:
+            technique.global_weight_roulette(particle_container, simulation)
+    elif particle["event"] & EVENT_TIME_CENSUS:
         particle_bank_module.bank_census_particle(particle_container, program)
         particle["alive"] = False
-
-    # Time boundary crossing
-    if particle["event"] & EVENT_TIME_BOUNDARY:
+    elif particle["event"] & EVENT_TIME_BOUNDARY:
         particle["alive"] = False
-
-    # ==================================================================================
-    # Apply techniques
-    # ==================================================================================
-
-    # Skip if not alive
-    if not particle["alive"]:
-        return
-
-    # Weight windows
-    if simulation["technique"]["weight_windows"]["active"]:
-        technique.weight_windows(particle_container, program, data)
-
-    # Global weight roulette
-    if simulation["technique"]["global_weight_roulette"]["active"]:
-        technique.global_weight_roulette(particle_container, simulation)
+    
 
 
 @njit
