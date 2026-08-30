@@ -2,9 +2,13 @@ import numba as nb
 import numba.extending as nbxt
 import numpy as np
 from mpi4py import MPI
+from numba import njit
 
 ####
 import mcdc.config as config
+
+import mcdc.code_factory.gpu.interface as interface
+
 
 # ======================================================================================
 # Transport function adapter
@@ -44,28 +48,6 @@ def adapt_transport_functions_post_setup():
 # ======================================================================================
 # Forward declaration
 # ======================================================================================
-
-# Main types
-none_type = None
-simulation_type = None
-data_type = None
-
-# Access functions
-state_spec = None
-access_simulation = None
-access_data_ptr = None
-access_group = None
-access_thread = None
-particle_gpu = None
-particle_record_gpu = None
-
-# Asynchronous transport kernels
-step_async = None
-find_cell_async = None
-
-# Memory allocations
-alloc_managed_bytes = None
-alloc_device_bytes = None
 
 
 def prepare_gpu_program(simulation_dtype, data_size):
@@ -115,45 +97,53 @@ def forward_declare_gpu_program(simulation_dtype):
     if config.args.gpu_rocm_path != None:
         harmonize.config.set_rocm_path(config.args.gpu_rocm_path)
 
+
+    bindings = {}
+
+    bindings["ARENA_SIZE"] = config.args.gpu_arena_size
+    bindings["BLOCK_COUNT"] = config.args.gpu_block_count
+
     # Main types: none, simulation structure, and simulation data
-    none_type = nb.from_dtype(np.dtype([]))
-    simulation_type = nb.types.Array(nb.from_dtype(simulation_dtype), (1,), "C")
-    data_type = nb.types.Array(nb.float64, 1, "C")
+    bindings["none_type"] = nb.from_dtype(np.dtype([]))
+    bindings["simulation_type"] = nb.types.Array(nb.from_dtype(simulation_dtype), (1,), "C")
+    bindings["data_type"] = nb.types.Array(nb.float64, 1, "C")
 
     # Set access functions
     state_spec = (
         {
-            "simulation": simulation_type,
-            "data": data_type,
+            "simulation": bindings["simulation_type"],
+            "data": bindings["data_type"],
         },
-        none_type,
-        none_type,
+        bindings["none_type"],
+        bindings["none_type"],
     )
     access_fns = harmonize.RuntimeSpec.access_fns(state_spec)
-    access_simulation = access_fns["device"]["simulation"]["indirect"]
-    access_data_ptr = access_fns["device"]["data"]["direct"]
-    access_group = access_fns["group"]
-    access_thread = access_fns["thread"]
-    particle_gpu = nb.from_dtype(type_.particle)
-    particle_record_gpu = nb.from_dtype(type_.particle_data)
+    bindings["access_simulation"] = access_fns["device"]["simulation"]["indirect"]
+    bindings["access_data_ptr"] = access_fns["device"]["data"]["direct"]
+    bindings["access_group"] = access_fns["group"]
+    bindings["access_thread"] = access_fns["thread"]
+    bindings["particle_gpu"] = nb.from_dtype(type_.particle)
+    bindings["particle_record_gpu"] = nb.from_dtype(type_.particle_data)
 
     # Functions, and their signatures
-    def step(program: nb.uintp, particle: particle_gpu):
+    def step(program: nb.uintp, particle: bindings["particle_gpu"]):
         pass
 
-    def find_cell(program: nb.uintp, particle: particle_gpu):
+    def find_cell(program: nb.uintp, particle: bindings["particle_gpu"]):
         pass
 
     # Asynchronous versions
-    step_async, find_cell_async = harmonize.RuntimeSpec.async_dispatch(step, find_cell)
+    bindings["step_async"], bindings["find_cell_async"] = harmonize.RuntimeSpec.async_dispatch(step, find_cell)
 
     # Program interfaces
-    interface = harmonize.RuntimeSpec.program_interface()
-    halt_early = interface["halt_early"]
+    prog_interface = harmonize.RuntimeSpec.program_interface()
+    bindings["halt_early"] = prog_interface["halt_early"]
 
     # Byte allocators
-    alloc_managed_bytes = harmonize.alloc_managed_bytes
-    alloc_device_bytes = harmonize.alloc_device_bytes
+    bindings["alloc_managed_bytes"] = harmonize.alloc_managed_bytes
+    bindings["alloc_device_bytes"] = harmonize.alloc_device_bytes
+
+    interface.bind(bindings)
 
     from mcdc.transport import util
 
@@ -165,7 +155,7 @@ def forward_declare_gpu_program(simulation_dtype):
     @nb.extending.overload(util.access_simulation, target=access_target)
     def access_simulation_gpu_overload(program):
         def impl(program):
-            return access_simulation(program)
+            return interface.access_simulation(program)
 
         return impl
 
@@ -174,29 +164,6 @@ def forward_declare_gpu_program(simulation_dtype):
 # Program builder
 # ======================================================================================
 
-alloc_state = None
-free_state = None
-
-alloc_program = None
-free_program = None
-
-load_state_device_simulation = None
-store_state_device_simulation = None
-store_pointer_state_device_simulation = None
-
-load_state_device_data = None
-store_state_device_data = None
-store_pointer_state_device_data = None
-
-init_program = None
-exec_program = None
-complete = None
-clear_flags = None
-set_device = None
-
-ARENA_SIZE = 0
-BLOCK_COUNT = 0
-
 
 def build_gpu_program(data_size):
     import harmonize
@@ -204,75 +171,13 @@ def build_gpu_program(data_size):
     import mcdc.transport.util as util
     from mcdc.transport.simulation import generate_source_particle, step_particle
 
-    global access_simulation, alloc_state, free_state
-
-    global alloc_program, free_program
-
-    global load_state_device_simulation, store_state_device_simulation, store_pointer_state_device_simulation
-
-    global load_state_device_data, store_state_device_data, store_pointer_state_device_data
-
-    global init_program, exec_program, complete, clear_flags, set_device
-    global ARENA_SIZE, BLOCK_COUNT
-
-    shape = eval(f"{(data_size,)}")
-
-    # ==============
-    # Base functions
-    # ==============
-
-    def make_work(program: nb.uintp) -> nb.boolean:
-        simulation = access_simulation(program)
-        data_ptr = access_data_ptr(program)
-        data = harmonize.array_from_ptr(data_ptr, shape, nb.float64)
-
-        idx_work = util.atomic_add(simulation["mpi_work_iter"], 0, 1)
-
-        if idx_work >= simulation["mpi_work_size"]:
-            return False
-
-        work_start = simulation["mpi_work_start"]
-
-        generate_source_particle(
-            simulation["mpi_work_start"],
-            nb.uint64(idx_work),
-            simulation["source_seed"],
-            program,
-            data,
-        )
-        return True
-
-    def initialize(program: nb.uintp):
-        pass
-
-    def finalize(program: nb.uintp):
-        pass
-
-    # ================
-    # Async. functions
-    # ================
-
-    def step(program: nb.uintp, particle_input: particle_gpu):
-        simulation = access_simulation(program)
-        data_ptr = access_data_ptr(program)
-        data = harmonize.array_from_ptr(data_ptr, shape, nb.float64)
-
-        particle_container = util.local_array(1, type_.particle)
-        particle_container[0] = particle_input
-        particle = particle_container[0]
-        particle["alive"] = True
-        particle["material_ID"] = -1
-        particle["cell_ID"] = -1
-        particle["surface_ID"] = -1
-        particle["event"] = -1
-        particle["fresh"] = False
-        step_particle(particle_container, program, data)
-        if particle["alive"]:
-            step_async(program, particle)
+    interface.bind({"data_shape":eval(f"{(data_size,)}")})
 
     # Bind them all
-    base_fns = (initialize, finalize, make_work)
-    async_fns = [step]
+    import mcdc.code_factory.gpu.program.common as common
+    base_fns = (common.initialize, common.finalize, common.make_work)
+    import mcdc.code_factory.gpu.program.monolithic as monolithic
+    async_fns = [monolithic.step]
     src_spec = harmonize.RuntimeSpec("mcdc_source", state_spec, base_fns, async_fns)
     harmonize.RuntimeSpec.bind_specs()
 
@@ -281,52 +186,18 @@ def build_gpu_program(data_size):
 
     if config.args.gpu_strategy == "async":
         config.args.gpu_arena_size = config.args.gpu_arena_size // 32
-        src_fns = src_spec.async_functions()
+        bindings = src_spec.async_functions()
     else:
-        src_fns = src_spec.event_functions()
+        bindings = src_spec.event_functions()
 
-    ARENA_SIZE = config.args.gpu_arena_size
-    BLOCK_COUNT = config.args.gpu_block_count
+    interface.bind(bindings)
 
-    alloc_state = src_fns["alloc_state"]
-    free_state = src_fns["free_state"]
-
-    alloc_program = src_fns["alloc_program"]
-    free_program = src_fns["free_program"]
-
-    load_state_device_simulation = src_fns["load_state_device_simulation"]
-    store_state_device_simulation = src_fns["store_state_device_simulation"]
-    store_pointer_state_device_simulation = src_fns[
-        "store_pointer_state_device_simulation"
-    ]
-
-    load_state_device_data = src_fns["load_state_device_data"]
-    store_state_device_data = src_fns["store_state_device_data"]
-    store_pointer_state_device_data = src_fns["store_pointer_state_device_data"]
-
-    init_program = src_fns["init_program"]
-    exec_program = src_fns["exec_program"]
-    complete = src_fns["complete"]
-    clear_flags = src_fns["clear_flags"]
-    set_device = src_fns["set_device"]
-
-    alloc_program = src_fns["alloc_program"]
-    free_program = src_fns["free_program"]
-    init_program = src_fns["init_program"]
-    exec_program = src_fns["exec_program"]
-    complete = src_fns["complete"]
-    clear_flags = src_fns["clear_flags"]
-    set_device = src_fns["set_device"]
-
-    alloc_managed_bytes = harmonize.alloc_managed_bytes
-    alloc_device_bytes = harmonize.alloc_device_bytes
 
 
 # ======================================================================================
 # Setup GPU
 # ======================================================================================
 
-from numba import njit
 
 rank = MPI.COMM_WORLD.Get_rank()
 device_id = rank % config.args.gpu_share_stride
@@ -336,33 +207,33 @@ device_id = rank % config.args.gpu_share_stride
 def setup_gpu_program(simulation_container, data):
     simulation = simulation_container[0]
 
-    set_device(device_id)
-    simulation["gpu_meta"]["state_pointer"] = cast_voidptr_to_uintp(alloc_state())
+    interface.set_device(device_id)
+    simulation["gpu_meta"]["state_pointer"] = cast_voidptr_to_uintp(interface.alloc_state())
     if config.gpu_state_storage == "separate":
-        store_pointer_state_device_simulation(
+        interface.store_pointer_state_device_simulation(
             simulation["gpu_meta"]["state_pointer"],
             simulation["gpu_meta"]["simulation_pointer"],
         )
-        store_pointer_state_device_data(
+        interface.store_pointer_state_device_data(
             simulation["gpu_meta"]["state_pointer"],
             simulation["gpu_meta"]["data_pointer"],
         )
     else:
-        store_pointer_state_device_simulation(
+        interface.store_pointer_state_device_simulation(
             simulation["gpu_meta"]["state_pointer"], simulation_container
         )
-        store_pointer_state_device_data(simulation["gpu_meta"]["state_pointer"], data)
+        interface.store_pointer_state_device_data(simulation["gpu_meta"]["state_pointer"], data)
 
     simulation["gpu_meta"]["program_pointer"] = cast_voidptr_to_uintp(
-        alloc_program(simulation["gpu_meta"]["state_pointer"], ARENA_SIZE)
+        interface.alloc_program(simulation["gpu_meta"]["state_pointer"], interface.ARENA_SIZE)
     )
-    init_program(simulation["gpu_meta"]["program_pointer"], BLOCK_COUNT)
+    interface.init_program(simulation["gpu_meta"]["program_pointer"], interface.BLOCK_COUNT)
 
 
 @njit
 def teardown_gpu_program(simulation):
-    free_program(cast_uintp_to_voidptr(simulation["gpu_meta"]["program_pointer"]))
-    free_state(cast_uintp_to_voidptr(simulation["gpu_meta"]["state_pointer"]))
+    interface.free_program(cast_uintp_to_voidptr(simulation["gpu_meta"]["program_pointer"]))
+    interface.free_state(cast_uintp_to_voidptr(simulation["gpu_meta"]["state_pointer"]))
 
 
 # ======================================================================================
@@ -406,3 +277,4 @@ def cast_voidptr_to_uintp(typingctx, src):
             return builder.ptrtoint(src, llrtype)
 
         return sig, codegen
+
