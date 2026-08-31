@@ -21,7 +21,6 @@ particle_record_gpu = None
 
 # Asynchronous transport kernels
 step_async = None
-find_cell_async = None
 
 # Memory allocations
 alloc_managed_bytes = None

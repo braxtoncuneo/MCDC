@@ -121,16 +121,39 @@ def forward_declare_gpu_program(simulation_dtype):
     bindings["access_thread"] = access_fns["thread"]
     bindings["particle_gpu"] = nb.from_dtype(type_.particle)
     bindings["particle_record_gpu"] = nb.from_dtype(type_.particle_data)
+    interface.bind(bindings)
 
-    # Functions, and their signatures
-    def step(program: nb.uintp, particle: bindings["particle_gpu"]):
-        pass
 
-    def find_cell(program: nb.uintp, particle: bindings["particle_gpu"]):
-        pass
+# ======================================================================================
+# Program builder
+# ======================================================================================
 
-    # Asynchronous versions
-    bindings["step_async"], bindings["find_cell_async"] = harmonize.RuntimeSpec.async_dispatch(step, find_cell)
+
+def build_gpu_program(data_size):
+    import harmonize
+    import mcdc.numba_types as type_
+    import mcdc.transport.util as util
+    from mcdc.transport.simulation import generate_source_particle, step_particle
+
+    interface.bind({"data_shape":eval(f"{(data_size,)}")})
+
+    # Bind them all
+    import mcdc.code_factory.gpu.program.common as common
+    base_fns = (common.initialize, common.finalize, common.make_work)
+
+    if config.args.gpu_event_decomp == "monolithic":
+        import mcdc.code_factory.gpu.program.monolithic as monolithic
+        async_fns = monolithic.async_functions
+    else:
+        raise RuntimeError(f"Unrecognized event decomposition scheme '{config.args.gpu_event_decomp}'")
+
+    bindings = {}
+    dispatch_fns = harmonize.RuntimeSpec.async_dispatch(*async_fns)
+
+    for idx in range(len(async_fns)):
+        py_fn = async_fns[idx]
+        disp_fn = dispatch_fns[idx]
+        bindings[py_fn.__name__+"_async"] = disp_fn 
 
     # Program interfaces
     prog_interface = harmonize.RuntimeSpec.program_interface()
@@ -157,24 +180,6 @@ def forward_declare_gpu_program(simulation_dtype):
         return impl
 
 
-# ======================================================================================
-# Program builder
-# ======================================================================================
-
-
-def build_gpu_program(data_size):
-    import harmonize
-    import mcdc.numba_types as type_
-    import mcdc.transport.util as util
-    from mcdc.transport.simulation import generate_source_particle, step_particle
-
-    interface.bind({"data_shape":eval(f"{(data_size,)}")})
-
-    # Bind them all
-    import mcdc.code_factory.gpu.program.common as common
-    base_fns = (common.initialize, common.finalize, common.make_work)
-    import mcdc.code_factory.gpu.program.monolithic as monolithic
-    async_fns = [monolithic.step]
     src_spec = harmonize.RuntimeSpec("mcdc_source", state_spec, base_fns, async_fns)
     harmonize.RuntimeSpec.bind_specs()
 

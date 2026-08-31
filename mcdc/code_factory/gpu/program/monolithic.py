@@ -27,3 +27,7 @@ def step(program: nb.uintp, particle_input: interface.particle_gpu):
     if particle["alive"]:
         interface.step_async(program, particle)
 
+
+async_functions = [step]
+
+
