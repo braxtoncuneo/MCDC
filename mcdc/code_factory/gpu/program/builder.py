@@ -10,6 +10,8 @@ import mcdc.config as config
 import mcdc.code_factory.gpu.interface as interface
 
 
+state_spec = {}
+
 # ======================================================================================
 # Transport function adapter
 # ======================================================================================
@@ -78,12 +80,6 @@ def forward_declare_gpu_program(simulation_dtype):
     import harmonize
     import mcdc.numba_types as type_
 
-    # Get to set the globals
-    global none_type, simulation_type, data_type
-    global state_spec, access_simulation, access_data_ptr, access_group, access_thread, particle_gpu, particle_record_gpu
-    global step_async, find_cell_async
-    global alloc_managed_bytes, alloc_device_bytes
-
     # Compilation check
     if MPI.COMM_WORLD.Get_rank() == 0:
         if config.caching == False:
@@ -109,6 +105,7 @@ def forward_declare_gpu_program(simulation_dtype):
     bindings["data_type"] = nb.types.Array(nb.float64, 1, "C")
 
     # Set access functions
+    global state_spec
     state_spec = (
         {
             "simulation": bindings["simulation_type"],
