@@ -6,6 +6,7 @@ from numba import njit
 
 ####
 import mcdc.config as config
+import mcdc.code_factory.gpu.substitution as sub
 
 import mcdc.code_factory.gpu.interface as interface
 
@@ -19,25 +20,9 @@ state_spec = {}
 
 # Overwrites global symbols in other modules with gpu-compatible counterparts
 def adapt_transport_functions():
-
     import mcdc.code_factory.gpu.transport as gpu_transport
     import mcdc.transport as transport
-
-    # TODO: Make the following automatic
-    transport.geometry.interface.report_lost_particle = (
-        gpu_transport.geometry.interface.report_lost_particle
-    )
-    transport.particle_bank.bank_active_particle = (
-        gpu_transport.particle_bank.bank_active_particle
-    )
-    transport.particle_bank.report_full_bank = (
-        gpu_transport.particle_bank.report_full_bank
-    )
-    transport.particle_bank.report_empty_bank = (
-        gpu_transport.particle_bank.report_empty_bank
-    )
-    transport.util.atomic_add = gpu_transport.util.atomic_add
-    transport.util.local_array = gpu_transport.util.local_array
+    sub.SubstitutionRegistry.evaluate()
 
 
 def adapt_transport_functions_post_setup():
