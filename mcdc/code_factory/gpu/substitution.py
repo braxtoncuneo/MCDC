@@ -18,7 +18,7 @@ class SubstitutionRegistry():
     candidate_registry = set()
     
     @classmethod
-    def evaluate(cls):
+    def evaluate(cls,tag=None):
 
         remove_set = set()
         for item in cls.candidate_registry:
@@ -48,12 +48,14 @@ class SubstitutionRegistry():
                     f"\nA substitution is active for the function {identify_fn(item.target_fn)} - but it is not marked as a substitution target.\n"
                     + f"The active substitution is {identify_fn(item.fn)}\n"
                 )
+            if cls.target_registry[item.target_fn].tag != tag:
+                continue
             item.evaluate()
+        
         for item in cls.target_registry:
             if not item in mapping:
                 print(item)
-                item.evaluate()
-
+                cls.target_registry[item].evaluate()
 
 
 class SubstitutionCandidate():
@@ -83,6 +85,7 @@ class SubstitutionTarget():
     def __init__(self,**kwargs):
         self.fn = kwargs["fn"]
         self.passthrough = kwargs["passthrough"]
+        self.tag = kwargs["tag"]
 
     def evaluate(self):
         setattr(
@@ -98,6 +101,9 @@ class SubstitutionTarget():
 
 
 def candidate(target_fn,passthrough=nb.njit,condition=always,**kwargs):
+    if isinstance(target_fn,nb.core.dispatcher.Dispatcher):
+        target_fn = target_fn.py_func
+
     def deco(fn):
         SubstitutionCandidate.register(
             target_fn=target_fn,
@@ -110,13 +116,14 @@ def candidate(target_fn,passthrough=nb.njit,condition=always,**kwargs):
     return deco
 
 
-def target(passthrough=nb.njit):
+def target(passthrough=nb.njit,tag=None):
     def deco(fn):
         SubstitutionTarget.register(
             fn=fn,
             passthrough=passthrough,
+            tag=tag,
         )
-        return fn
+        return passthrough(fn)
     return deco
 
 

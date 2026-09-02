@@ -57,7 +57,7 @@ def _bank_particle(particle_container, bank):
     particle_module.copy(bank["particle_data"][idx : idx + 1], particle_container)
 
 
-@sub.target()
+@sub.target(tag="async")
 def bank_active_particle(particle_container, program):
     simulation = util.access_simulation(program)
     bank = simulation["bank_active"]

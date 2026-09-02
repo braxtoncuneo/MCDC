@@ -1,6 +1,7 @@
 import harmonize
 import numba as nb
 
+import mcdc.code_factory.gpu.program.builder as builder
 import mcdc.code_factory.gpu.interface as interface
 import mcdc.transport.util as util
 import mcdc.numba_types as type_
@@ -28,6 +29,6 @@ def step(program: nb.uintp, particle_input: interface.particle_gpu):
         interface.step_async(program, particle)
 
 
-async_functions = [step]
+builder.async_functions.append(step)
 
 

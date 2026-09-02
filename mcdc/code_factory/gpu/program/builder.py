@@ -12,6 +12,7 @@ import mcdc.code_factory.gpu.interface as interface
 
 
 state_spec = {}
+async_functions  = []
 
 # ======================================================================================
 # Transport function adapter
@@ -128,15 +129,20 @@ def build_gpu_program(data_size):
 
     if config.args.gpu_event_decomp == "monolithic":
         import mcdc.code_factory.gpu.program.monolithic as monolithic
-        async_fns = monolithic.async_functions
+    elif config.args.gpu_event_decomp == "course":
+        import mcdc.code_factory.gpu.program.course as course
     else:
         raise RuntimeError(f"Unrecognized event decomposition scheme '{config.args.gpu_event_decomp}'")
 
-    bindings = {}
-    dispatch_fns = harmonize.RuntimeSpec.async_dispatch(*async_fns)
+    sub.SubstitutionRegistry.evaluate(tag="async")
 
-    for idx in range(len(async_fns)):
-        py_fn = async_fns[idx]
+    bindings = {}
+
+    global async_functions
+    dispatch_fns = harmonize.RuntimeSpec.async_dispatch(*async_functions)
+
+    for idx in range(len(async_functions)):
+        py_fn = async_functions[idx]
         disp_fn = dispatch_fns[idx]
         bindings[py_fn.__name__+"_async"] = disp_fn 
 
@@ -165,7 +171,7 @@ def build_gpu_program(data_size):
         return impl
 
 
-    src_spec = harmonize.RuntimeSpec("mcdc_source", state_spec, base_fns, async_fns)
+    src_spec = harmonize.RuntimeSpec("mcdc_source", state_spec, base_fns, async_functions)
     harmonize.RuntimeSpec.bind_specs()
 
     # Load the specs
