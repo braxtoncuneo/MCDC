@@ -54,7 +54,6 @@ class SubstitutionRegistry():
         
         for item in cls.target_registry:
             if not item in mapping:
-                print(item)
                 cls.target_registry[item].evaluate()
 
 

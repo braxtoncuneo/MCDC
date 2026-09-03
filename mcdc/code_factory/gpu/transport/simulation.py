@@ -39,7 +39,6 @@ def source_loop(seed, simulation, data):
         simulation["mpi_work_iter"][0] = phase_size * phase
         simulation["mpi_work_size"] = min(phase_size * (phase + 1), full_work_size)
         simulation["source_seed"] = seed
-        simulation["debug_counter"][0] = 0
 
         # Store the global state to the GPU
         if settings["gpu_storage"] == GPU_STORAGE_SEPARATE:
@@ -82,7 +81,6 @@ def source_loop(seed, simulation, data):
 
     simulation["mpi_work_size"] = full_work_size
 
-    print("Debug counter ended as : ", simulation["debug_counter"][0])
     particle_bank_module.set_bank_size(simulation["bank_active"], 0)
 
     source_closeout(simulation, 1, 1, data)
