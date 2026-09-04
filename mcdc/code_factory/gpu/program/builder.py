@@ -10,9 +10,8 @@ import mcdc.code_factory.gpu.substitution as sub
 
 import mcdc.code_factory.gpu.interface as interface
 
-
 state_spec = {}
-async_functions  = []
+async_functions = []
 
 # ======================================================================================
 # Transport function adapter
@@ -23,6 +22,7 @@ async_functions  = []
 def adapt_transport_functions():
     import mcdc.code_factory.gpu.transport as gpu_transport
     import mcdc.transport as transport
+
     sub.SubstitutionRegistry.evaluate()
 
 
@@ -79,7 +79,6 @@ def forward_declare_gpu_program(simulation_dtype):
     if config.args.gpu_rocm_path != None:
         harmonize.config.set_rocm_path(config.args.gpu_rocm_path)
 
-
     bindings = {}
 
     bindings["ARENA_SIZE"] = config.args.gpu_arena_size
@@ -87,7 +86,9 @@ def forward_declare_gpu_program(simulation_dtype):
 
     # Main types: none, simulation structure, and simulation data
     bindings["none_type"] = nb.from_dtype(np.dtype([]))
-    bindings["simulation_type"] = nb.types.Array(nb.from_dtype(simulation_dtype), (1,), "C")
+    bindings["simulation_type"] = nb.types.Array(
+        nb.from_dtype(simulation_dtype), (1,), "C"
+    )
     bindings["data_type"] = nb.types.Array(nb.float64, 1, "C")
 
     # Set access functions
@@ -121,10 +122,11 @@ def build_gpu_program(data_size):
     import mcdc.transport.util as util
     from mcdc.transport.simulation import generate_source_particle, step_particle
 
-    interface.bind({"data_shape":eval(f"{(data_size,)}")})
+    interface.bind({"data_shape": eval(f"{(data_size,)}")})
 
     # Bind them all
     import mcdc.code_factory.gpu.program.common as common
+
     base_fns = (common.initialize, common.finalize, common.make_work)
 
     if config.args.gpu_event_decomp == "monolithic":
@@ -132,7 +134,9 @@ def build_gpu_program(data_size):
     elif config.args.gpu_event_decomp == "course":
         import mcdc.code_factory.gpu.program.course as course
     else:
-        raise RuntimeError(f"Unrecognized event decomposition scheme '{config.args.gpu_event_decomp}'")
+        raise RuntimeError(
+            f"Unrecognized event decomposition scheme '{config.args.gpu_event_decomp}'"
+        )
 
     sub.SubstitutionRegistry.evaluate(tag="async")
 
@@ -144,7 +148,7 @@ def build_gpu_program(data_size):
     for idx in range(len(async_functions)):
         py_fn = async_functions[idx]
         disp_fn = dispatch_fns[idx]
-        bindings[py_fn.__name__+"_async"] = disp_fn 
+        bindings[py_fn.__name__ + "_async"] = disp_fn
 
     # Program interfaces
     prog_interface = harmonize.RuntimeSpec.program_interface()
@@ -170,8 +174,9 @@ def build_gpu_program(data_size):
 
         return impl
 
-
-    src_spec = harmonize.RuntimeSpec("mcdc_source", state_spec, base_fns, async_functions)
+    src_spec = harmonize.RuntimeSpec(
+        "mcdc_source", state_spec, base_fns, async_functions
+    )
     harmonize.RuntimeSpec.bind_specs()
 
     # Load the specs
@@ -184,7 +189,6 @@ def build_gpu_program(data_size):
         bindings = src_spec.event_functions()
 
     interface.bind(bindings)
-
 
 
 # ======================================================================================
@@ -201,7 +205,9 @@ def setup_gpu_program(simulation_container, data):
     simulation = simulation_container[0]
 
     interface.set_device(device_id)
-    simulation["gpu_meta"]["state_pointer"] = cast_voidptr_to_uintp(interface.alloc_state())
+    simulation["gpu_meta"]["state_pointer"] = cast_voidptr_to_uintp(
+        interface.alloc_state()
+    )
     if config.gpu_state_storage == "separate":
         interface.store_pointer_state_device_simulation(
             simulation["gpu_meta"]["state_pointer"],
@@ -215,17 +221,25 @@ def setup_gpu_program(simulation_container, data):
         interface.store_pointer_state_device_simulation(
             simulation["gpu_meta"]["state_pointer"], simulation_container
         )
-        interface.store_pointer_state_device_data(simulation["gpu_meta"]["state_pointer"], data)
+        interface.store_pointer_state_device_data(
+            simulation["gpu_meta"]["state_pointer"], data
+        )
 
     simulation["gpu_meta"]["program_pointer"] = cast_voidptr_to_uintp(
-        interface.alloc_program(simulation["gpu_meta"]["state_pointer"], interface.ARENA_SIZE)
+        interface.alloc_program(
+            simulation["gpu_meta"]["state_pointer"], interface.ARENA_SIZE
+        )
     )
-    interface.init_program(simulation["gpu_meta"]["program_pointer"], interface.BLOCK_COUNT)
+    interface.init_program(
+        simulation["gpu_meta"]["program_pointer"], interface.BLOCK_COUNT
+    )
 
 
 @njit
 def teardown_gpu_program(simulation):
-    interface.free_program(cast_uintp_to_voidptr(simulation["gpu_meta"]["program_pointer"]))
+    interface.free_program(
+        cast_uintp_to_voidptr(simulation["gpu_meta"]["program_pointer"])
+    )
     interface.free_state(cast_uintp_to_voidptr(simulation["gpu_meta"]["state_pointer"]))
 
 
@@ -270,4 +284,3 @@ def cast_voidptr_to_uintp(typingctx, src):
             return builder.ptrtoint(src, llrtype)
 
         return sig, codegen
-

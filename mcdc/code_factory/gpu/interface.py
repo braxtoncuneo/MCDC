@@ -1,9 +1,10 @@
-
 def bind(value_map):
     import sys
+
     module = sys.modules[__name__]
     for name, value in value_map.items():
         setattr(module, name, value)
+
 
 # Main types
 none_type = None
@@ -25,6 +26,3 @@ step_async = None
 # Memory allocations
 alloc_managed_bytes = None
 alloc_device_bytes = None
-
-
-

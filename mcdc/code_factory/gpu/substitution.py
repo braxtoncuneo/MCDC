@@ -5,6 +5,7 @@ import numba as nb
 def always():
     return True
 
+
 def identify_fn(fn):
     return f"'{fn.__name__}' at {inspect.getfile(fn)}:{inspect.getsourcelines(fn)[1]}"
 
@@ -13,12 +14,12 @@ def identity(x):
     return x
 
 
-class SubstitutionRegistry():
+class SubstitutionRegistry:
     target_registry = {}
     candidate_registry = set()
-    
+
     @classmethod
-    def evaluate(cls,tag=None):
+    def evaluate(cls, tag=None):
 
         remove_set = set()
         for item in cls.candidate_registry:
@@ -51,15 +52,15 @@ class SubstitutionRegistry():
             if cls.target_registry[item.target_fn].tag != tag:
                 continue
             item.evaluate()
-        
+
         for item in cls.target_registry:
             if not item in mapping:
                 cls.target_registry[item].evaluate()
 
 
-class SubstitutionCandidate():
+class SubstitutionCandidate:
 
-    def __init__(self,**kwargs):
+    def __init__(self, **kwargs):
         self.target_fn = kwargs["target_fn"]
         self.fn = kwargs["fn"]
         self.condition = kwargs["condition"]
@@ -71,17 +72,15 @@ class SubstitutionCandidate():
             self.target_fn.__name__,
             self.passthrough(self.fn),
         )
-    
+
     @staticmethod
     def register(**kwargs):
         SubstitutionRegistry.candidate_registry.add(SubstitutionCandidate(**kwargs))
 
-    
-        
 
-class SubstitutionTarget():
-    
-    def __init__(self,**kwargs):
+class SubstitutionTarget:
+
+    def __init__(self, **kwargs):
         self.fn = kwargs["fn"]
         self.passthrough = kwargs["passthrough"]
         self.tag = kwargs["tag"]
@@ -92,15 +91,16 @@ class SubstitutionTarget():
             self.fn.__name__,
             self.passthrough(self.fn),
         )
-    
+
     @staticmethod
     def register(**kwargs):
-        SubstitutionRegistry.target_registry[kwargs["fn"]] = SubstitutionTarget(**kwargs)
+        SubstitutionRegistry.target_registry[kwargs["fn"]] = SubstitutionTarget(
+            **kwargs
+        )
 
 
-
-def candidate(target_fn,passthrough=nb.njit,condition=always,**kwargs):
-    if isinstance(target_fn,nb.core.dispatcher.Dispatcher):
+def candidate(target_fn, passthrough=nb.njit, condition=always, **kwargs):
+    if isinstance(target_fn, nb.core.dispatcher.Dispatcher):
         target_fn = target_fn.py_func
 
     def deco(fn):
@@ -112,10 +112,11 @@ def candidate(target_fn,passthrough=nb.njit,condition=always,**kwargs):
             **kwargs,
         )
         return fn
+
     return deco
 
 
-def target(passthrough=nb.njit,tag=None):
+def target(passthrough=nb.njit, tag=None):
     def deco(fn):
         SubstitutionTarget.register(
             fn=fn,
@@ -123,7 +124,5 @@ def target(passthrough=nb.njit,tag=None):
             tag=tag,
         )
         return passthrough(fn)
+
     return deco
-
-
- 

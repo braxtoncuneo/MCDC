@@ -7,7 +7,8 @@ import mcdc.code_factory.gpu.substitution as sub
 
 from numba import njit, types
 
-@sub.candidate(util.atomic_add,passthrough=sub.identity)
+
+@sub.candidate(util.atomic_add, passthrough=sub.identity)
 def atomic_add(array, idx, value):
     result = array[idx]
     array[idx] += value
@@ -37,7 +38,7 @@ def overload_atomic_add_cpu(array, idx, value):
 # =============================================================================
 
 
-@sub.candidate(util.local_array,passthrough=sub.identity)
+@sub.candidate(util.local_array, passthrough=sub.identity)
 def local_array(shape, dtype):
     return np.zeros(shape, dtype=dtype)
 

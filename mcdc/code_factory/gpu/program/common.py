@@ -7,6 +7,7 @@ from mcdc.transport.util import atomic_add
 
 data_shape = eval(f"{interface.data_shape}")
 
+
 def make_work(program: nb.uintp) -> nb.boolean:
     simulation = interface.access_simulation(program)
     data_ptr = interface.access_data_ptr(program)
@@ -28,10 +29,10 @@ def make_work(program: nb.uintp) -> nb.boolean:
     )
     return True
 
+
 def initialize(program: nb.uintp):
     pass
 
+
 def finalize(program: nb.uintp):
     pass
-
-

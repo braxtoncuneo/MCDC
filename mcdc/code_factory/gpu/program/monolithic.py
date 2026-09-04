@@ -10,6 +10,7 @@ from mcdc.transport.simulation import step_particle
 
 data_shape = eval(f"{interface.data_shape}")
 
+
 def step(program: nb.uintp, particle_input: interface.particle_gpu):
     simulation = interface.access_simulation(program)
     data_ptr = interface.access_data_ptr(program)
@@ -30,5 +31,3 @@ def step(program: nb.uintp, particle_input: interface.particle_gpu):
 
 
 builder.async_functions.append(step)
-
-

@@ -294,16 +294,16 @@ def step_particle(particle_container, program, data):
         close_out_collision(particle_container, collision_data_container, program, data)
     elif particle["event"] & EVENT_SURFACE_CROSSING:
         surface_crossing(particle_container, program, data)
-        manage_weight(particle_container,program,data)
+        manage_weight(particle_container, program, data)
     elif particle["event"] & EVENT_TIME_CENSUS:
         particle_bank_module.bank_census_particle(particle_container, program)
         particle["alive"] = False
     elif particle["event"] & EVENT_TIME_BOUNDARY:
         particle["alive"] = False
-    
+
 
 @njit
-def close_out_collision(particle_container,collision_data_container,program,data):
+def close_out_collision(particle_container, collision_data_container, program, data):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
     # Score collision tallies
@@ -319,7 +319,7 @@ def close_out_collision(particle_container,collision_data_container,program,data
                 simulation,
                 data,
             )
-    manage_weight(particle_container,program,data)
+    manage_weight(particle_container, program, data)
 
 
 @sub.target(tag="async")
@@ -329,6 +329,7 @@ def manage_weight(particle_container, program, data):
         technique.weight_windows(particle_container, program, data)
     elif simulation["technique"]["global_weight_roulette"]["active"]:
         technique.global_weight_roulette(particle_container, simulation)
+
 
 @njit
 def move_to_event(particle_container, simulation, data):
