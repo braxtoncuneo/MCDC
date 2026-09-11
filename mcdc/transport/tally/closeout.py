@@ -29,7 +29,9 @@ from mcdc.print_ import print_structure
 
 @njit
 def data_alignment_safe(simulation):
-    return (simulation["settings"]["target"] != GPU) or (simulation["settings"]["gpu_storage"] != GPU_STORAGE_UNITED)
+    return (simulation["settings"]["target"] != GPU) or (
+        simulation["settings"]["gpu_storage"] != GPU_STORAGE_UNITED
+    )
 
 
 @njit
@@ -39,7 +41,7 @@ def reduce(simulation, data):
 
 
 @njit
-def _fast_reduce(simulation,buff):
+def _fast_reduce(simulation, buff):
     master = simulation["mpi_master"]
     with objmode():
         if master:
@@ -47,12 +49,14 @@ def _fast_reduce(simulation,buff):
         else:
             MPI.COMM_WORLD.Reduce(buff, None, MPI.SUM, 0)
 
+
 @njit
 def _misalignment_safe_reduce(buff):
     temp_buff = np.zeros(len(buff))
     with objmode():
         MPI.COMM_WORLD.Reduce(buff, temp_buff, MPI.SUM, 0)
     buff[:] = temp_buff
+
 
 @njit
 def _reduce(tally, simulation, data):
@@ -67,9 +71,10 @@ def _reduce(tally, simulation, data):
 
     # MPI Reduce
     if data_alignment_safe(simulation):
-        _fast_reduce(simulation,data[start:end])
-    else :
+        _fast_reduce(simulation, data[start:end])
+    else:
         _misalignment_safe_reduce(data[start:end])
+
 
 # ======================================================================================
 # Accumulate tally bins
@@ -144,8 +149,8 @@ def _finalize(tally, simulation, data):
 
     elif data_alignment_safe(simulation):
         # In-place MPI Reduce
-        _fast_reduce(simulation,data[sum_start:sum_end])
-        _fast_reduce(simulation,data[sum_sq_start:sum_end])
+        _fast_reduce(simulation, data[sum_start:sum_end])
+        _fast_reduce(simulation, data[sum_sq_start:sum_end])
     else:
         # MPI Reduce with external buffer to account for potentially unaligned
         # storage in APU memory

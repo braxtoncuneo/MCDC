@@ -186,9 +186,9 @@ def override_settings(simulation) -> bool:
 
         set_setting("gpu_strategy", strategy)
         set_setting("gpu_storage", storage)
-        set_setting("target",GPU)
+        set_setting("target", GPU)
     else:
-        set_setting("target",CPU)
+        set_setting("target", CPU)
 
     return changed
 
