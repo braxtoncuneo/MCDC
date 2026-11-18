@@ -1,38 +1,96 @@
-name: GPU regression test
+# =============================================================================
+# GPU Regression Tests
+# =============================================================================
+# Runs the fixed-source regression cases on self-hosted NVIDIA GPU runners.
+# Runner setup (one runner per GPU, toolchain, labels): .github/gpu-runner/
+#
+# Pushes and manual runs test both GPU state-storage modes, one per runner;
+# pull requests test only `separate` (MC/DC's default).
+#
+# Pull requests from forks never run here: fork code must not execute on the
+# self-hosted machine. To test one on GPU, a maintainer reviews it, pushes it
+# to a branch of this repository, and starts this workflow manually.
+# =============================================================================
+
+name: GPU Regression Tests
 
 on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
   workflow_dispatch:
+    inputs:
+      storage:
+        description: "GPU state-storage modes, as a JSON list"
+        default: '["separate", "managed"]'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  # Temporary flag for node24 migration; remove when GitHub default switches.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  HARMONIZE_REPOSITORY: https://github.com/CEMeNT-PSAAP/harmonize.git
+  HARMONIZE_REVISION: ebc42dc0b4056d3313f4824cf7474bf0aa4ef711
+  # Must match the runner toolchain's nvcc (setup_toolchain.sh). Numba's NVVM
+  # comes from pip and must not be newer than nvcc, or nvcc cannot assemble
+  # its PTX; `harmonize check` tests this.
+  CUDA_VERSION: "13.3"
 
 jobs:
-  build:
-    runs-on: self-hosted
-    env:
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  gpu-regression:
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    name: GPU (${{ matrix.storage }})
+    runs-on: [self-hosted, gpu, sm_80]
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        storage: >-
+          ${{ fromJSON(github.event_name == 'pull_request' && '["separate"]'
+          || inputs.storage || '["separate", "managed"]') }}
+
     steps:
-    - uses: actions/checkout@v3
-    - name: Load modules and build python venv
-      run: |
-        pwd
-        cd ..
-        pwd
-        module load cuda/11.8 gcc/10.3 mpich/4.0h_gcc-10 python/3.13
-        rm -rf ci_testing
-        python -m venv ci_testing
-        module unload python/3.13
-        source ci_testing/bin/activate
-        pip install --upgrade pip
-        pwd
-    - name: Install MC/DC and Harmonize
-      run: |
-        source ../ci_testing/bin/activate
-        pwd
-        pip install -e .
-        git clone https://github.com/CEMeNT-PSAAP/harmonize.git
-        cd harmonize
-        pip install -e .
-        cd ..
-    - name: Regression Test - GPU
-      run: |
-          pwd
-          source ../ci_testing/bin/activate
-          python -m pytest -v test/regression --mode=numba --target=gpu
+      - uses: actions/checkout@v4
+
+      - name: Create a fresh environment from the runner toolchain
+        run: |
+          toolchain="${MCDC_GPU_TOOLCHAIN:?the runner must set MCDC_GPU_TOOLCHAIN in its .env file}"
+          venv="$RUNNER_TEMP/venv"
+          rm -rf "$venv"
+          "$toolchain/bin/python" -m venv "$venv"
+          # GITHUB_PATH entries are prepended, so the venv ends up first
+          echo "$toolchain/bin" >> "$GITHUB_PATH"
+          echo "$venv/bin" >> "$GITHUB_PATH"
+
+      - name: Install MC/DC and Harmonize
+        run: |
+          python -m pip install --upgrade pip
+          harmonize="$RUNNER_TEMP/harmonize"
+          rm -rf "$harmonize"
+          git clone --quiet --filter=blob:none "$HARMONIZE_REPOSITORY" "$harmonize"
+          git -C "$harmonize" checkout --quiet --detach "$HARMONIZE_REVISION"
+          python -m pip install -e . -e "$harmonize[cuda${CUDA_VERSION%%.*}]" \
+            "cuda-toolkit[cudart,nvvm,nvrtc,nvjitlink,cccl]==${CUDA_VERSION}.*" \
+            "nvidia-nvjitlink==${CUDA_VERSION}.*" \
+            pytest pytest-xdist
+          python -m pip list
+
+      - name: Check the GPU environment
+        run: |
+          python -m harmonize info
+          python -m harmonize check
+
+      - name: Regression Test - GPU (${{ matrix.storage }})
+        run: |
+          python -m pytest -v test/regression \
+            -n "${GPU_REGRESSION_WORKERS:-6}" \
+            --mode=numba --target=gpu \
+            --gpu_state_storage=${{ matrix.storage }}
