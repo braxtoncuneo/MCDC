@@ -35,8 +35,9 @@ permissions:
 env:
   # Temporary flag for node24 migration; remove when GitHub default switches.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-  HARMONIZE_REPOSITORY: https://github.com/CEMeNT-PSAAP/harmonize.git
-  HARMONIZE_REVISION: ebc42dc0b4056d3313f4824cf7474bf0aa4ef711
+  # Temporary source until harmonize-software/harmonize is public
+  HARMONIZE_REPOSITORY: https://github.com/braxtoncuneo/harmonize.git
+  HARMONIZE_REVISION: f50558d921966390e422f11c408393285d50238f
   # Must match the runner toolchain's nvcc (setup_toolchain.sh). Numba's NVVM
   # comes from pip and must not be newer than nvcc, or nvcc cannot assemble
   # its PTX; `harmonize check` tests this.
