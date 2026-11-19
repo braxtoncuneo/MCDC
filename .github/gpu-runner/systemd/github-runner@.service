@@ -1,0 +1,19 @@
+# One self-hosted GitHub Actions runner, in ~/runner-<instance>.
+# Installed by install_runners.sh.
+[Unit]
+Description=GitHub Actions runner (%i)
+After=network-online.target
+
+[Service]
+WorkingDirectory=%h/runner-%i
+ExecStart=%h/runner-%i/run.sh
+# run.sh passes SIGTERM on to the runner, which cancels a running job and
+# reports it before exiting; gpu-runner-quiet only stops idle runners.
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=5min
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
