@@ -73,7 +73,11 @@ def parse_window(text):
     if not match:
         raise ConfigError(f"window {text!r} is not like 'Mon-Fri 09:00-17:00'")
     try:
-        return parse_days(match.group(1)), parse_time(match.group(2)), parse_time(match.group(3))
+        return (
+            parse_days(match.group(1)),
+            parse_time(match.group(2)),
+            parse_time(match.group(3)),
+        )
     except ValueError:
         raise ConfigError(f"window {text!r} has an unknown day or time") from None
 
@@ -135,8 +139,10 @@ def runners():
     names = []
     for entry in sorted(os.listdir(HOME)):
         path = os.path.join(HOME, entry)
-        if entry.startswith("runner-") and os.path.exists(os.path.join(path, ".runner")):
-            names.append(entry[len("runner-"):])
+        if entry.startswith("runner-") and os.path.exists(
+            os.path.join(path, ".runner")
+        ):
+            names.append(entry[len("runner-") :])
     return names
 
 
@@ -151,7 +157,9 @@ def busy(name):
     """Whether runner `name` is running a job: its Runner.Worker process exists.
 
     Matched by executable rather than command line, which may be relative."""
-    worker = os.path.realpath(os.path.join(HOME, f"runner-{name}", "bin", "Runner.Worker"))
+    worker = os.path.realpath(
+        os.path.join(HOME, f"runner-{name}", "bin", "Runner.Worker")
+    )
     for pid in os.listdir("/proc"):
         if pid.isdigit():
             try:
@@ -200,7 +208,14 @@ def status(mode, windows, reason):
 def main(argv):
     if len(argv) == 3 and argv[1] == "busy":  # for install_runners.sh
         return 0 if busy(argv[2]) else 1
-    if len(argv) != 2 or argv[1] not in ("status", "on", "off", "pause", "apply", "check"):
+    if len(argv) != 2 or argv[1] not in (
+        "status",
+        "on",
+        "off",
+        "pause",
+        "apply",
+        "check",
+    ):
         print(__doc__.strip(), file=sys.stderr)
         return 0 if len(argv) == 2 and argv[1] in ("-h", "--help") else 2
     command = argv[1]
