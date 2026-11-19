@@ -1,0 +1,7 @@
+# Applies the GPU runners' quiet hours; started by gpu-runner-quiet.timer.
+[Unit]
+Description=Apply the GPU runners' quiet hours
+
+[Service]
+Type=oneshot
+ExecStart=%h/bin/gpu-runner-quiet apply
