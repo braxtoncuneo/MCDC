@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
-- Run the GPU regression tests on self-hosted NVIDIA runners (one runner per GPU) for pushes, manual runs, and same-repository pull requests, with runner setup notes in `.github/gpu-runner/`, from [@braxtoncuneo]
+- Run the GPU regression tests on self-hosted NVIDIA runners (one runner per GPU) for pushes, manual runs, and same-repository pull requests, using the Harmonize release from PyPI (`harmonize-python`), with an install script and optional quiet hours for the runners in `.github/gpu-runner/`, from [@braxtoncuneo]
 - Introduce documented, projectile-specific `mcdc-data` libraries and shared converters for neutron, photon, electron, and proton transport, with generalized data, interpolation, and distribution representations across preparation, loading, and sampling, from [@ilhamv], [@ethan-lame], [@hansenkyle], [@melekderman], [@nglaser3], and [@DouglasHouser]
 - Add photon-electron coupling: Compton, photoelectric, Auger, and pair-production electrons and positrons, and bremsstrahlung photons with energies sampled from the EPRDATA14 spectrum, are transported when the other species is active, from [@DouglasHouser]
 - Add 'mass_density', 'mass_fraction', and 'number_density' to Material.__init__, each of which allows mixing elements and nuclides, from [@hansenkyle]
