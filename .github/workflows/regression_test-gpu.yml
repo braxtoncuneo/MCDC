@@ -36,7 +36,7 @@ env:
   # Temporary flag for node24 migration; remove when GitHub default switches.
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # The Harmonize release to test with (PyPI: harmonize-python)
-  HARMONIZE_VERSION: "0.1.0"
+  HARMONIZE_VERSION: "0.1.1"
   # Must match the runner toolchain's nvcc (setup_toolchain.sh). Numba's NVVM
   # comes from pip and must not be newer than nvcc, or nvcc cannot assemble
   # its PTX; `harmonize check` tests this.
