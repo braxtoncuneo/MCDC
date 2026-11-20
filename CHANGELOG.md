@@ -72,6 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Replace `np.searchsorted` in GPU transport code with a portable binary search, so MC/DC's GPU code compiles for AMD GPUs (Numba's HIP target), from [@braxtoncuneo]
 - Fix all-zero tallies from GPU runs with `separate` state storage (the default), from [@braxtoncuneo]
 - Fix GPU builds failing to compile because proton capture was passed the simulation instead of the program, from [@braxtoncuneo]
 - Apply weight windows and weight roulette to GPU particles before their first step, as on CPU, from [@braxtoncuneo]
